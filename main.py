@@ -1,6 +1,5 @@
 import numpy as np
 import struct
-import matplotlib.pyplot as plt
 
 
 def read_images(filepath):
@@ -23,14 +22,14 @@ def read_labels(filepath):
 
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
-    #return np.maximum(0, x)
-    #return np.where(x > 0, x, 0.01 * x)
+    # return np.maximum(0, x)
+    # return np.where(x > 0, x, 0.01 * x)
 
 
 def d_sigmoid(x):
     return sigmoid(x) * (1 - sigmoid(x))
-    #return (x > 0).astype(float)
-    #return np.where(x > 0, 1, 0.01)
+    # return (x > 0).astype(float)
+    # return np.where(x > 0, 1, 0.01)
 
 
 class Network:
@@ -134,6 +133,7 @@ class Network:
             # 处理输入层（第0层）的特殊情况
             if i == 0:
 
+                # 遗留的屎山 改不下去就重写了
                 '''self.gradient_temp[i] = np.dot(self.gradient_temp[i + 1], (np.dot(self.weights[i + 1].transpose(),
 
                                                                            d_sigmoid(np.dot(self.weights[i],
@@ -151,6 +151,7 @@ class Network:
             # 处理隐藏层
             else:
 
+                # 遗留的屎山
                 '''self.gradient_temp[i] = np.dot(self.gradient_temp[i + 1], (np.dot(self.weights[i + 1].transpose() ,
                                                                            d_sigmoid(np.dot(self.weights[i],
                                                                                             self.layers[i - 1]) +
@@ -173,6 +174,7 @@ class Network:
 
 
 if __name__ == '__main__':
+    DEBUG = True
     # 示例用法
     train_images = read_images('data\\train-images.idx3-ubyte')
     train_labels = read_labels('data\\train-labels.idx1-ubyte')
@@ -189,7 +191,7 @@ if __name__ == '__main__':
             temp += list(train_images[i][j])
 
         # 用于debug
-        if 0:
+        if DEBUG:
             print(network.forward(np.array(temp) / 255))
             print(network.calculate_cost(np.array(one_hot)))
         else:
