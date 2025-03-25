@@ -11,31 +11,65 @@ def d_activate_function(x):
 
 
 class Tensor:
-    def __init__(self, data, requires_grad=False):
+    def __init__(self, data: np.array, requires_grad=False):
         self.data = data  # 节点存储的数值
         self.grad = 0.0  # 梯度值（初始为0）
         self.requires_grad = requires_grad  # 是否需要计算梯度
-        self.grad_fn = None  # 生成该节点的运算（如加法、乘法）
+        self.op = None  # 生成该节点的运算（如加法、乘法）
         self.parents = []  # 输入节点列表（父节点，构成计算图的边）
 
-        self.weight = None  # 权重
-        self.bias = 0  # 偏置
+    def __add__(self, other):
+        # 加法运算
+        if isinstance(other, Tensor):
+            out = Tensor(self.data + other.data, requires_grad=True)
+            out.op = 'add'
+            out.parents = [self, other]
+            return out
+        else:  # 估计是用不到了
+            out = Tensor(self.data + other, requires_grad=True)
+            out.op = 'add'
+            out.parents = [self]
+            return out
 
-    def backward(self, other):
-        if self.grad_fn == "forward":
-            other.grad = self._activate(other)
-            other.requires_grad = True
+    def add_forward(self, other):
+        return self + other
 
-    def _activate(self, other):
-        # 仅仅计算节点的梯度 而不是偏置或者权重
+    def add_backward(self, grad):
+        pass
 
-        temp_grad = self.data * d_activate_function(other.data)
-        temp_grad *= other.weight
+    def __mul__(self, other):
+        # 乘法运算
+        if isinstance(other, Tensor):
+            out = Tensor(self.data * other.data, requires_grad=True)
+            out.op = 'mul'
+            out.parents = [self, other]
+            return out
+        else:
+            out = Tensor(self.data * other, requires_grad=True)
+            out.op = 'mul'
+            out.parents = [self]
+            return out
 
-        return temp_grad
+    def mul_forward(self, other):
+        return self * other
 
-    def forward(self, other):
-        # 前向传播，用于生成计算图
-        self.parents.append(other)
-        self.data = activate_function(other.data*other.weight + other.bias)
-        other.grad_fn = "forward"
+    def mul_backward(self, grad):
+        pass
+
+    def activate_forward(self):
+        out = Tensor(activate_function(self.data), requires_grad=True)
+        out.op = 'activate'
+        out.parents = [self]
+        return out
+
+    def activate_backward(self, grad):
+        pass
+
+    def dot_forward(self, other):
+        out = Tensor(np.dot(self.data, other.data), requires_grad=True)
+        out.op = 'dot'
+        out.parents = [self, other]
+        return out
+
+    def dot_backward(self, grad):
+        pass
