@@ -6,7 +6,13 @@ import struct
 
 class Tensor:
     def __init__(self, data: np.array, requires_grad=False):
-        self.data = data  # 节点存储的数值
+        # 用于将向量形式转化为Nx1矩阵形式
+        if data.ndim == 1:
+            self.data = data.reshape(-1, 1)
+        else:
+            self.data = data
+
+        # 注意 梯度也需要统一形式
         self.grad = None  # 梯度值（初始为None）
         self.requires_grad = requires_grad  # 是否需要计算梯度
         self.op = None  # 生成该节点的运算（如加法、乘法）
@@ -163,10 +169,10 @@ class Tensor:
             if self.parents[0].requires_grad:
                 if self.parents[0].grad is None:
                     self.parents[0].grad = self.grad * self.parents[1] * (
-                                self.parents[0].data ** (self.parents[1] - 1))
+                            self.parents[0].data ** (self.parents[1] - 1))
                 else:
                     self.parents[0].grad += self.grad * self.parents[1] * (
-                                self.parents[0].data ** (self.parents[1] - 1))
+                            self.parents[0].data ** (self.parents[1] - 1))
 
     def activate_forward(self):
         out = Tensor(self.activate_function(self.data), requires_grad=True)
@@ -191,17 +197,30 @@ class Tensor:
         :param other: 需要乘的向量
         :return: 返回一个向量
         """
-        # 矩阵在左
-        out = Tensor(np.dot(self.data, other.data), requires_grad=True)
-        out.op = 'dot'
-        out.parents = [self, other]
-        return out
+        # 需要考虑向量相乘
+        if self.data.shape[1] == 1 and other.data.shape[1] == 1:
+            out = Tensor(np.dot(self.data.T, other.data), requires_grad=True)
+            out.op = 'dot'
+            out.parents = [self, other]
+            return out
+
+        else:
+            # 矩阵在左
+            out = Tensor(np.dot(self.data, other.data), requires_grad=True)
+            out.op = 'dot'
+            out.parents = [self, other]
+            return out
 
     def dot_backward(self):
         if self.op == "dot":
             # 处理父节点0（权重矩阵）的梯度
             if self.parents[0].requires_grad:
-                grad_parent0 = np.outer(self.grad, self.parents[1].data)  # 改为外积计算
+                grad_parent0 = np.dot(self.grad, self.parents[1].data.T)
+
+                # 下面这个只是个打上去的补丁，如果self.grad为一个数字，
+                # 那么上面那条语句就会导致梯度矩阵形状错误
+                if self.grad.shape == (1, 1):
+                    grad_parent0 = grad_parent0.reshape(-1, 1)
 
                 if self.parents[0].grad is None:
                     self.parents[0].grad = grad_parent0
@@ -210,7 +229,7 @@ class Tensor:
 
             # 处理父节点1（输入向量）的梯度
             if self.parents[1].requires_grad:
-                grad_parent1 = np.dot(self.parents[0].data.T, self.grad.reshape(-1))
+                grad_parent1 = np.dot(self.parents[0].data.T, self.grad)
 
                 if self.parents[1].grad is None:
                     self.parents[1].grad = grad_parent1
@@ -220,6 +239,11 @@ class Tensor:
             print("Error: dot_backward only works for dot operation.")
 
     def auto_backward(self):
+        """
+        通过self.op标签中的字符串决定反向传播类型
+        注意：自动反向传播只支持add, sub, mul, pow, activate, dot操作
+        :return:
+        """
         if self.op == "add":
             self.add_backward()
         elif self.op == "sub":
@@ -255,7 +279,6 @@ class TensorNetwork:
         for _ in range(depth):
             self.layers.append(Tensor(np.zeros(layer_size[_]), requires_grad=False))
 
-
         # 初始化权重矩阵
         self.weights = []  # 权重矩阵列表
 
@@ -264,13 +287,14 @@ class TensorNetwork:
                 self.weights.append(Tensor(np.random.randn(layer_size[_], 784) * np.sqrt(2. / 784), requires_grad=True))
             else:
                 self.weights.append(
-                    Tensor(np.random.randn(layer_size[_], layer_size[_ - 1]) * np.sqrt(2. / layer_size[_ - 1]), requires_grad=True))
+                    Tensor(np.random.randn(layer_size[_], layer_size[_ - 1]) * np.sqrt(2. / layer_size[_ - 1]),
+                           requires_grad=True))
 
         # 初始化偏置向量
         self.biases = []  # 偏置向量列表
 
         for _ in range(depth):
-            self.biases.append(Tensor(np.zeros(layer_size[_]), requires_grad=True))
+            self.biases.append(Tensor(np.zeros(layer_size[_]).reshape(-1, 1), requires_grad=True))
 
     def forward(self, input: np.ndarray):
         """
@@ -278,7 +302,7 @@ class TensorNetwork:
         :param input: 作为神经网络的输入向量
         :return: 无
         """
-        self.input = Tensor(input, requires_grad=False)  # 保存输入数据
+        self.input = Tensor(input.reshape(-1, 1), requires_grad=False)  # 保存输入数据
 
         # 处理第一层神经
         self.layers[0] = ((self.weights[0].dot_forward(Tensor(input, requires_grad=False))
@@ -300,20 +324,25 @@ class TensorNetwork:
         :param learning_rate: 学习率
         :return: 无
         """
-        self.label = Tensor(label, requires_grad=False)
+        self.label = Tensor(label.reshape(-1, 1), requires_grad=False)
 
         # 计算损失值对输出层的梯度
         cost_temp = []  # 长度为2
+        # temp 1 存储最后一层与目标值之差
+        # temp 2 存储 temp 1 的平方
+        # cost 存储 temp 2 中数据之和
 
         cost_temp.append(self.layers[-1] - self.label)
         cost_temp.append(cost_temp[0].pow_forward(2))
         self.cost = cost_temp[1].dot_forward(Tensor(np.ones(10), requires_grad=False))
-        self.cost.grad = np.array([1])
+        self.cost.grad = np.array([1]).reshape(-1, 1)
+
         # 反向传播
         self.cost.dot_backward()
         cost_temp[1].pow_backward()
         cost_temp[0].sub_backward()
 
+        # 反向传播至各隐藏层（从倒数第二层开始）
         for i in range(self.depth - 1, -1, -1):
             self.layers[i].activate_backward()  # 返回到激活前
             self.layers[i].parents[0].add_backward()  # 返回到Wa 和 b
@@ -322,13 +351,12 @@ class TensorNetwork:
         # 更新权重和偏置
         for i in range(self.depth):
             self.weights[i].data -= learning_rate * self.weights[i].grad
-            self.biases[i].data -= learning_rate * self.biases[i].grad.reshape(-1)
+            self.biases[i].data -= learning_rate * self.biases[i].grad
 
         # 清空梯度
         for i in range(self.depth):
             self.weights[i].grad = None
             self.biases[i].grad = None
-
 
 
 def read_images(filepath):

@@ -8,8 +8,9 @@
 
 #### Automatic differentiation
 
-使用了链式法则实现了自动求导的功能
+使用了链式法则实现了自动求导的功能。
 
-现在仍然还存在向量的形式的问题，后续会解决
+##### 注意事项：
+自动求导中的向量都已经统一修改成为矩阵的形式，即 $\overrightarrow{v}_n \overrightarrow{} V_{n \times 1 }$， 但是需要添加少量的判断条件来处理向量点乘的情况
 
-解决方案估计是将向量的形式统一成矩阵的形式，即 $\overrightarrow{v}_n \overrightarrow{} V_{n \times 1 }$
+可能会存在遗漏的情况，但是目前程序还是跑起来了
