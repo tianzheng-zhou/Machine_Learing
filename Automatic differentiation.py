@@ -5,6 +5,18 @@ import struct
 
 
 class Tensor:
+    """
+    这个类用于存储神经网络中的张量，包括数据、梯度、运算等信息。
+    它支持基本的加法和乘法运算，并提供了激活函数和反向传播方法。
+
+    其中主要包含两类方法：
+    1. 前向传播（运算）方法：用于执行加法和乘法等运算。
+    2. 反向传播方法：用于计算梯度。
+
+    注意：这个类并没有提供改变神经网络参数的方法，因为它只存储数据和梯度。
+          如果需要改变神经网络参数，应该在主程序中自行编写。
+
+    """
     def __init__(self, data: np.array, requires_grad=False):
         # 用于将向量形式转化为Nx1矩阵形式
         if data.ndim == 1:
@@ -20,10 +32,22 @@ class Tensor:
 
     @staticmethod
     def activate_function(x):
+        """
+        激活函数：暂时使用sigmoid函数
+        也可以使用其他激活函数，如ReLU、tanh等。
+        :param x: 输入值
+        :return: 激活后的值
+        """
         return 1 / (1 + np.exp(-x))  # sigmoid函数实现
 
     @staticmethod
     def d_activate_function(x):
+        """
+        激活函数的导数：sigmoid函数的导数
+        也可以使用其他激活函数的导数。
+        :param x: 输入值
+        :return: 激活函数的导数
+        """
         s = 1 / (1 + np.exp(-x))  # 复用sigmoid函数计算
         return s * (1 - s)  # 导数公式 σ'(x) = σ(x)(1-σ(x))
 
@@ -54,12 +78,13 @@ class Tensor:
                 else:
                     self.parents[0].grad += self.grad
 
+            # parent 1
             if self.parents[1].requires_grad:
-                # parent 1
                 if self.parents[1].grad is None:
                     self.parents[1].grad = self.grad
                 else:
                     self.parents[1].grad += self.grad
+
         else:
             print("Error: add_backward only works for add operation.")
 
@@ -175,12 +200,20 @@ class Tensor:
                             self.parents[0].data ** (self.parents[1] - 1))
 
     def activate_forward(self):
+        """
+        激活函数的前向传播
+        :return:
+        """
         out = Tensor(self.activate_function(self.data), requires_grad=True)
         out.op = 'activate'
         out.parents = [self]
         return out
 
     def activate_backward(self):
+        """
+        激活函数的反向传播
+        :return:
+        """
         if self.op == "activate":
             if self.parents[0].requires_grad:
                 if self.parents[0].grad is None:
@@ -212,6 +245,10 @@ class Tensor:
             return out
 
     def dot_backward(self):
+        """
+        矩阵乘向量的反向传播
+        :return:
+        """
         if self.op == "dot":
             # 处理父节点0（权重矩阵）的梯度
             if self.parents[0].requires_grad:
@@ -275,6 +312,7 @@ class TensorNetwork:
 
         # layers作为二维数组 存储隐藏层 内部元素为np数组
         self.layers = []  # 存储每一层的激活值
+
         # 初始化每一层的激活值为Tensor
         for _ in range(depth):
             self.layers.append(Tensor(np.zeros(layer_size[_]), requires_grad=False))
@@ -328,10 +366,10 @@ class TensorNetwork:
 
         # 计算损失值对输出层的梯度
         cost_temp = []  # 长度为2
+
         # temp 1 存储最后一层与目标值之差
         # temp 2 存储 temp 1 的平方
         # cost 存储 temp 2 中数据之和
-
         cost_temp.append(self.layers[-1] - self.label)
         cost_temp.append(cost_temp[0].pow_forward(2))
         self.cost = cost_temp[1].dot_forward(Tensor(np.ones(10), requires_grad=False))
@@ -378,7 +416,7 @@ def read_labels(filepath):
 
 
 if __name__ == '__main__':
-    DEBUG = True
+    # DEBUG = False  # 没啥用，用于显示过程
     # 示例用法
     train_images = read_images('data\\train-images.idx3-ubyte')
     train_labels = read_labels('data\\train-labels.idx1-ubyte')
@@ -387,6 +425,8 @@ if __name__ == '__main__':
     test_labels = read_labels('data\\t10k-labels.idx1-ubyte')
 
     network = TensorNetwork(depth=3, layer_size=(50, 40, 10))
+
+    # 训练60000张图片
     for i in range(60000):
         one_hot = np.zeros(10)
         one_hot[train_labels[i]] = 1
@@ -398,6 +438,8 @@ if __name__ == '__main__':
         network.backward(np.array(one_hot), 0.1)
         print(network.cost)
 
+    # 10000张图片用于验证
+    # count 用于记录正确的数量
     count = 0
     for i in range(10000):
         one_hot = np.zeros(10)
@@ -411,4 +453,5 @@ if __name__ == '__main__':
         if np.argmax(network.layers[-1].data) == test_labels[i]:
             count += 1
 
+    # 输出正确率
     print(count / 10000)
