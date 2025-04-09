@@ -1,4 +1,4 @@
-## 这是一个对于神经网路的学习项目
+## 这是一个对于机器学习的学习项目
 
 #### fully connected neural network
 

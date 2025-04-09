@@ -119,7 +119,7 @@ class policy:
 class episode:
     """表示一个完整的交互轨迹"""
 
-    def __init__(self, state: block, policy: policy, step: int):
+    def __init__(self, state: int, policy: policy, step: int):
         self.track = []  # 存储（状态，动作）序列
         self.now_state = state  # 当前状态
         self.policy = policy  # 使用的策略

@@ -10,6 +10,7 @@ import copy
 import random
 
 if __name__ == '__main__':
+    # 初始化
     classes.space = surroundings_function.import_maze(
         "maze.txt")
     print(len(classes.space))
@@ -17,7 +18,9 @@ if __name__ == '__main__':
 
     init_state = random.randint(0, len(classes.space) - 1)
     sign = 1
+
     # process_pool=multiprocessing.Pool()
+
     for cnt_round in range(1000):
         epsilon_policy = classes.policy(args.epsilon_greedy(1))
         print(cnt_round)

@@ -1,5 +1,3 @@
-from typing import List, Any
-
 import numpy as np
 import struct
 
@@ -17,6 +15,7 @@ class Tensor:
           如果需要改变神经网络参数，应该在主程序中自行编写。
 
     """
+
     def __init__(self, data: np.array, requires_grad=False):
         # 用于将向量形式转化为Nx1矩阵形式
         if data.ndim == 1:
@@ -122,22 +121,48 @@ class Tensor:
             print("Error: sub_backward only works for sub operation.")
 
     def __mul__(self, other):
-        # 乘法运算
+        """
+        乘法运算
+
+        这里的乘法运算，是对应元素相乘，而不是矩阵乘法。不要和dot()方法搞混了。
+
+        矩阵乘法可以使用dot_forward()方法实现。
+        :param other:
+        :return:
+        """
         if isinstance(other, Tensor):
             out = Tensor(self.data * other.data, requires_grad=True)
             out.op = 'mul'
             out.parents = [self, other]
             return out
         else:
-            out = Tensor(self.data * other, requires_grad=True)
+            # 处理数乘的情况
+
+            # 这里就是将数字转化为元素全部相同的，相同形状的张量进行乘法运算
+            # temp储存了输入标量所对应的张量
+            temp = Tensor(np.full(self.data.shape, other))
+            out = Tensor(self.data * temp, requires_grad=True)
             out.op = 'mul'
-            out.parents = [self]
+            out.parents = [self, temp]
             return out
 
     def mul_forward(self, other):
+        """
+        乘法运算的前向传播
+        这里的乘法运算，是对应元素相乘，而不是矩阵乘法。
+        矩阵乘法可以使用dot_forward()方法实现。
+        :param other:要乘的数
+        :return:
+        """
         return self * other
 
     def mul_backward(self):
+        """
+        乘法运算的反向传播
+        这里的乘法运算，是对应元素相乘，而不是矩阵乘法。
+        矩阵乘法可以使用dot_backward()方法实现。
+        :return:
+        """
         if self.op == "mul":
 
             if self.parents[0].requires_grad:
@@ -178,6 +203,7 @@ class Tensor:
     def pow_forward(self, other):
         """
         幂运算的前向传播
+
         暂时只支持与标量相乘的幂运算，即self为Tensor，other为float or int
         :param other: 指数
         :return:
@@ -225,7 +251,14 @@ class Tensor:
 
     def dot_forward(self, other):
         """
-        矩阵乘向量
+        矩阵点乘
+        以及矩阵乘向量
+        向量点乘向量
+
+        注意：这里指的是矩阵运算，而不是逐个元素相乘。不要和mul()方法搞混了。
+
+        逐个元素相乘可以使用mul_forward()方法实现。
+
         self在左是矩阵，other在右是向量
         :param other: 需要乘的向量
         :return: 返回一个向量
@@ -278,7 +311,11 @@ class Tensor:
     def auto_backward(self):
         """
         通过self.op标签中的字符串决定反向传播类型
+
         注意：自动反向传播只支持add, sub, mul, pow, activate, dot操作
+
+        ps:不过嘛 auto的东西还是尽量不要用了啦
+
         :return:
         """
         if self.op == "add":
@@ -398,6 +435,11 @@ class TensorNetwork:
 
 
 def read_images(filepath):
+    """
+    读取MNIST图像文件
+    :param filepath: 文件路径
+    :return: 图像数据 (样本数, 行, 列)
+    """
     # 读取MNIST图像文件
     with open(filepath, 'rb') as f:
         magic, num, rows, cols = struct.unpack('>IIII', f.read(16))
@@ -408,6 +450,11 @@ def read_images(filepath):
 
 
 def read_labels(filepath):
+    """
+    读取MNIST标签文件
+    :param filepath: 文件路径
+    :return: 标签数据 (样本数,)
+    """
     with open(filepath, 'rb') as f:
         magic, num = struct.unpack('>II', f.read(8))
         assert magic == 0x00000801, "Invalid label file format"
@@ -417,7 +464,8 @@ def read_labels(filepath):
 
 if __name__ == '__main__':
     # DEBUG = False  # 没啥用，用于显示过程
-    # 示例用法
+
+    # 读取MNIST数据
     train_images = read_images('data\\train-images.idx3-ubyte')
     train_labels = read_labels('data\\train-labels.idx1-ubyte')
 
