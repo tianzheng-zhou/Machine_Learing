@@ -316,10 +316,12 @@ class Tensor:
         :return: 返回卷积后的结果
         """
         if isinstance(kernel, Tensor):
-            # 这里初始化可能会出问题，如果stride不是1
-            # data_temp存储卷积运算后的结果
-            data_temp = np.zeros((self.data.shape[0] - kernel.data.shape[0] + 1) // stride,
-                                 (self.data.shape[1] - kernel.data.shape[1] + 1) // stride)
+            # 计算输出形状
+            out_height = (self.data.shape[0] - kernel.data.shape[0]) // stride + 1
+            out_width = (self.data.shape[1] - kernel.data.shape[1]) // stride + 1
+
+            # 初始化输出矩阵
+            data_temp = np.zeros((out_height, out_width))
 
             # 卷积运算
             # 根据原数据 卷积核 步长决定卷积结果
@@ -330,7 +332,7 @@ class Tensor:
                     # 求和
                     temp = np.sum(temp)
                     # 存储到卷积后的结果中
-                    self.data[i][j] = temp
+                    data_temp[i][j] = temp
 
             out = Tensor(data_temp, requires_grad=True)
             out.op = 'convolution'
@@ -362,8 +364,8 @@ class Tensor:
                 # 然后进行卷积运算
                 # 这是卷积计算的输出值
                 # 长度：输入值减去卷积核长度+1
-                data_temp = np.zeros((temp_self_grad.shape[0] - temp_kernel.shape[0] + 1) // self.parents[2],
-                                     (temp_self_grad.shape[1] - temp_kernel.shape[1] + 1) // self.parents[2])
+                data_temp = np.zeros(((temp_self_grad.shape[0] - temp_kernel.shape[0] + 1) // self.parents[2],
+                                     (temp_self_grad.shape[1] - temp_kernel.shape[1] + 1) // self.parents[2]))
 
                 for i in range(0, temp_self_grad.shape[0] - temp_kernel.shape[0] + 1, self.parents[2]):
                     for j in range(0, temp_self_grad.shape[1] - temp_kernel.shape[1] + 1, self.parents[2]):
@@ -382,6 +384,10 @@ class Tensor:
 
             # 接下来处理卷积核的梯度
             if self.parents[1].requires_grad:
+                # 卷积核梯度初始化
+                if self.parents[1].grad is None:
+                    self.parents[1].grad = np.zeros_like(self.parents[1].data)
+
                 # 可能需要遍历卷积核
 
                 for i in range(self.parents[1].data.shape[0]):
@@ -390,7 +396,7 @@ class Tensor:
                         res_len = self.data.shape[0]
 
                         # 卷积核对结果的影响还是蛮大的，卷积核的梯度为卷积结果与原图相应的部分相乘后求和
-                        grad_temp = self.parents[0].data[0:i + res_len, 0:j + res_len] * self.grad
+                        grad_temp = self.parents[0].data[i:i + res_len, j:j + res_len] * self.grad
                         self.parents[1].grad[i][j] = np.sum(grad_temp)
 
                 # 暂时不支持多个梯度返回到一个卷积核
@@ -498,7 +504,7 @@ class Tensor:
 
 class FCNN:
     # Fully Connected Neural Network
-    def __init__(self, depth: int, layer_size: tuple):
+    def __init__(self, depth: int, layer_size: tuple, input_size: int):
         # 注意：layer_size最后一层应当为10
         # depth是屎山，应该去掉的，懒得改了
 
@@ -523,7 +529,7 @@ class FCNN:
 
         for _ in range(depth):
             if _ == 0:
-                self.weights.append(Tensor(np.random.randn(layer_size[_], 784) * np.sqrt(2. / 784), requires_grad=True))
+                self.weights.append(Tensor(np.random.randn(layer_size[_], input_size) * np.sqrt(2. / input_size), requires_grad=True))
             else:
                 self.weights.append(
                     Tensor(np.random.randn(layer_size[_], layer_size[_ - 1]) * np.sqrt(2. / layer_size[_ - 1]),
@@ -600,13 +606,16 @@ class FCNN:
             self.weights[i].data -= learning_rate * self.weights[i].grad
             self.biases[i].data -= learning_rate * self.biases[i].grad
 
+    def erase_grad(self):
+        """
+        清空梯度
+        :return:
+        """
         # 清空梯度
         for i in range(self.depth):
             self.weights[i].grad = None
             self.biases[i].grad = None
             self.layers[i].grad = None
-        cost_temp[0].grad = None
-        cost_temp[1].grad = None
         self.cost.grad = None
         # 清空输入数据
         self.input.grad = None
@@ -650,7 +659,7 @@ if __name__ == '__main__':
     test_images = read_images('data\\t10k-images.idx3-ubyte')
     test_labels = read_labels('data\\t10k-labels.idx1-ubyte')
 
-    network = FCNN(depth=3, layer_size=(50, 40, 10))
+    network = FCNN(depth=1, layer_size=(10,), input_size=784)
 
     # 训练60000张图片
     for i in range(60000):
@@ -660,7 +669,9 @@ if __name__ == '__main__':
         for j in range(28):
             temp += list(train_images[i][j])
 
-        network.forward(np.array(temp) / 255, True)
+        network.forward(Tensor(np.array(temp) / 255, requires_grad=True))
+
+        # network.forward(np.array(temp) / 255, True)
         network.backward(np.array(one_hot), 0.1)
         print(network.cost)
 
