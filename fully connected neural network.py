@@ -1,6 +1,11 @@
 import numpy as np
 import struct
 
+"""
+手写全连接神经网络
+并没有使用自动求导的框架
+而是自己写的反向传播算法
+"""
 
 def read_images(filepath):
     # 读取MNIST图像文件
