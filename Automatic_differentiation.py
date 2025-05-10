@@ -604,6 +604,12 @@ class FCNN:
         for i in range(self.depth):
             self.weights[i].grad = None
             self.biases[i].grad = None
+            self.layers[i].grad = None
+        cost_temp[0].grad = None
+        cost_temp[1].grad = None
+        self.cost.grad = None
+        # 清空输入数据
+        self.input.grad = None
 
 
 def read_images(filepath):
