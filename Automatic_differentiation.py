@@ -497,6 +497,7 @@ class Tensor:
 
 
 class FCNN:
+    # Fully Connected Neural Network
     def __init__(self, depth: int, layer_size: tuple):
         # 注意：layer_size最后一层应当为10
         # depth是屎山，应该去掉的，懒得改了
@@ -534,14 +535,18 @@ class FCNN:
         for _ in range(depth):
             self.biases.append(Tensor(np.zeros(layer_size[_]).reshape(-1, 1), requires_grad=True))
 
-    def forward(self, input: np.ndarray, input_required_grad: bool = False):
+    def forward(self, input, input_required_grad: bool = False):
         """
         前向传播函数
         :param input_required_grad: 选择是否计算输入的梯度，默认为False，用于兼容其他类型网络
-        :param input: 作为神经网络的输入向量
+        :param input: 作为神经网络的输入向量，可以是numpy数组或Tensor对象 注意：Tensor对象一定要reshape一下哟
         :return: 无
         """
-        self.input = Tensor(input.reshape(-1, 1), requires_grad=input_required_grad)  # 保存输入数据
+        # 处理输入数据
+        if isinstance(input, Tensor):
+            self.input = input  # 保存输入数据
+        else:
+            self.input = Tensor(input.reshape(-1, 1), requires_grad=input_required_grad)  # 保存输入数据
 
         # 处理第一层神经
         """self.layers[0] = ((self.weights[0].dot_forward(Tensor(input, requires_grad=input_required_grad))
