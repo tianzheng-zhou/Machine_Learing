@@ -32,12 +32,13 @@ class Tensor:
     @staticmethod
     def activate_function(x):
         """
-        激活函数：暂时使用sigmoid函数
+        激活函数：暂时使用RELU函数
         也可以使用其他激活函数，如ReLU、tanh等。
         :param x: 输入值
         :return: 激活后的值
         """
         return 1 / (1 + np.exp(-x))  # sigmoid函数实现
+        # return np.where(x > 0, x, 0.01 * x)  # ReLU函数实现
 
     @staticmethod
     def d_activate_function(x):
@@ -49,6 +50,7 @@ class Tensor:
         """
         s = 1 / (1 + np.exp(-x))  # 复用sigmoid函数计算
         return s * (1 - s)  # 导数公式 σ'(x) = σ(x)(1-σ(x))
+        # return np.where(x > 0, 1, 0.01)  # ReLU函数的导数实现
 
     def __add__(self, other):
         # 加法运算
@@ -659,10 +661,10 @@ if __name__ == '__main__':
     test_images = read_images('data\\t10k-images.idx3-ubyte')
     test_labels = read_labels('data\\t10k-labels.idx1-ubyte')
 
-    network = FCNN(depth=1, layer_size=(10,), input_size=784)
+    network = FCNN(depth=2, layer_size=(10,10), input_size=784)
 
     # 训练60000张图片
-    for i in range(60000):
+    for i in range(6000):
         one_hot = np.zeros(10)
         one_hot[train_labels[i]] = 1
         temp = []
@@ -672,13 +674,14 @@ if __name__ == '__main__':
         network.forward(Tensor(np.array(temp) / 255, requires_grad=True))
 
         # network.forward(np.array(temp) / 255, True)
-        network.backward(np.array(one_hot), 0.1)
+        network.backward(np.array(one_hot), 0.003)
+        network.erase_grad()
         print(network.cost)
 
     # 10000张图片用于验证
     # count 用于记录正确的数量
     count = 0
-    for i in range(10000):
+    for i in range(1000):
         one_hot = np.zeros(10)
         one_hot[test_labels[i]] = 1
         temp = []
@@ -691,4 +694,4 @@ if __name__ == '__main__':
             count += 1
 
     # 输出正确率
-    print(count / 10000)
+    print(count / 1000)

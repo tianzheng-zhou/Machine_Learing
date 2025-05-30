@@ -81,7 +81,7 @@ class CNN:
         :return:
         """
         # 全连接层反向
-        self.fc.backward(y, learning_rate)
+        self.fc.backward(y, learning_rate/5)
 
         # 更改形状以适配卷积层
         self.fcnn_input.data = self.fcnn_input.data.reshape(self.shape)
@@ -132,7 +132,8 @@ if __name__ == '__main__':
             temp += list(train_images[i][j])
 
         net.forward((np.array(temp) / 255).reshape(28, 28))
-        net.backward(np.array(one_hot), 0.001)
+        net.backward(np.array(one_hot), 1.5*(count/6000))
+        net.erase_grad()
         count += 1
         print(count)
 
