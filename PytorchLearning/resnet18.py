@@ -37,37 +37,50 @@ test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
 
 # 先定义神经网络类
-class CNN(nn.Module):
-    def __init__(self):
+class ResBlock(nn.Module):
+    def __init__(self,in_channels,out_channels,stride=1):
         super().__init__()
 
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 8, kernel_size=3, stride=1, padding=1),
+        self.block = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1),
+            nn.BatchNorm2d(8),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(8),
         )
 
-        self.flatten = nn.Flatten()
-
-        self.linear_layers = nn.Sequential(
-            nn.Linear(8 * 7 * 7, 50),
-            nn.ReLU(),
-            nn.Linear(50, 10),
-        )
+        if in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.shortcut = nn.Sequential()
 
     def forward(self, x):
         # 先通过卷积层
-        x = self.conv_layers(x)
-        # 然后展平
-        x = self.flatten(x)
-        # 最后通过全连接层
-        logits = self.linear_layers(x)
+        x = self.block(x)
+        # 然后shortcut
+        x = x + self.shortcut(x)
+        # 最后通过relu
+        logits = self.ReLU(x)
         return logits
 
+class Resnet18(nn.Module):
+    def __init__(self, res_block, num_classes=10):
+        super().__init__()
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
+        self.res_layers = nn.Sequential(
+            res_block(64, 64, 1),
+            res_block(64, 64, 1),
+            res_block(64, 128, 2),
+            res_block(128, 128, 1),
+        )
 
 # 然后定义训练循环以及测试循环
 def train_loop(dataloader, model, loss_fn, optimizer):
